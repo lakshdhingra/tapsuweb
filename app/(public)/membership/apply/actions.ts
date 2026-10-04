@@ -1,64 +1,29 @@
 "use server";
 
 import { fetchApi } from "@/lib/api-client";
-import { createServiceClient } from "@/lib/supabase/service";
 
-const BUCKET_NAME = "application-documents";
-
-async function ensureBucketExists(supabase: ReturnType<typeof createServiceClient>) {
-  // Try to create the bucket — silently ignore if it already exists
-  await supabase.storage.createBucket(BUCKET_NAME, {
-    public: false,
-    fileSizeLimit: 5 * 1024 * 1024, // 5MB
-    allowedMimeTypes: ["image/jpeg", "image/jpg", "image/png", "application/pdf"],
-  });
-}
-
-/**
- * Sanitizes a file name for use as a Supabase Storage path.
- * Replaces spaces and characters that are problematic in object storage paths.
- */
-function sanitizeName(fileName: string): string {
-  // Preserve the extension, sanitize the base name
-  const lastDot = fileName.lastIndexOf(".");
-  const ext = lastDot !== -1 ? fileName.slice(lastDot) : "";
-  const base = lastDot !== -1 ? fileName.slice(0, lastDot) : fileName;
-  // Replace spaces and any non-alphanumeric/dash/underscore/dot chars with underscores
-  const safeBase = base.replace(/[^a-zA-Z0-9_\-]/g, "_");
-  return `${safeBase}${ext}`;
-}
-
-export async function getUploadUrls(folderName: string, fileNames: string[]) {
-  if (!fileNames || fileNames.length === 0) {
+export async function getUploadUrls(files: { name: string; type: string }[]) {
+  if (!files || files.length === 0) {
     return [];
   }
 
-  const supabase = createServiceClient();
-  await ensureBucketExists(supabase);
+  const urls = await Promise.all(
+    files.map(async (file) => {
+      const res = await fetchApi('/membership/upload-url', {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+        }),
+      });
+      return {
+        originalName: file.name,
+        key: res.key,
+        signedUrl: res.signedUrl,
+      };
+    })
+  );
 
-  const urls: { originalName: string; storedName: string; path: string; signedUrl: string; token: string }[] = [];
-  
-  for (const fileName of fileNames) {
-    const storedName = sanitizeName(fileName);
-    const path = `${folderName}/${storedName}`;
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUploadUrl(path);
-      
-    if (error || !data) {
-      console.error(`Failed to create signed URL for ${fileName} (stored as ${storedName}):`, error);
-      throw new Error(`Failed to initialize upload for ${fileName}`);
-    }
-    
-    urls.push({
-      originalName: fileName,
-      storedName,
-      path: data.path,
-      signedUrl: data.signedUrl,
-      token: data.token,
-    });
-  }
-  
   return urls;
 }
 
@@ -79,6 +44,14 @@ export async function submitMembershipApplication(formData: FormData) {
   const fullAddress = formData.get("fullAddress") as string;
   const reasonForJoining = (formData.get("reasonForJoining") as string) || undefined;
   const additionalInfo = (formData.get("additionalInfo") as string) || undefined;
+
+  const documentsStr = formData.get("documents") as string;
+  let documents: any[] = [];
+  if (documentsStr) {
+    try {
+      documents = JSON.parse(documentsStr);
+    } catch {}
+  }
 
   // Basic server-side validation
   if (!fullName || !email || !phone || !serviceCenterName || !designation || !brandsWorkedWith.length || !gstNo || !district || !city || !address || !fullAddress) {
@@ -107,6 +80,7 @@ export async function submitMembershipApplication(formData: FormData) {
         fullAddress,
         reasonForJoining,
         additionalInfo,
+        documents,
       }),
     });
 
@@ -119,3 +93,4 @@ export async function submitMembershipApplication(formData: FormData) {
     return { success: false, error: err.message || "Failed to submit application. Please try again." };
   }
 }
+

@@ -12,7 +12,6 @@ import { CheckCircle2, ChevronRight, ChevronLeft, UploadCloud, X } from "lucide-
 import { cn } from "@/lib/utils";
 
 import { submitMembershipApplication, getUploadUrls } from "@/app/(public)/membership/apply/actions";
-import { createClient } from "@/lib/supabase/client";
 
 const STEPS = [
   { id: "01", name: "Personal", fields: ["fullName", "email", "phone"] },
@@ -84,37 +83,38 @@ export function ApplicationForm() {
     setSubmitError(null);
     
     try {
-      // Upload files to Supabase directly from the client using signed URLs
-      let tempFolderName = "";
-      const uploadedFileNames: string[] = [];
+      const documentsMetadata: { key: string; originalName: string; mimeType: string; size: number }[] = [];
 
       if (uploadedFiles.length > 0) {
-        tempFolderName = crypto.randomUUID();
-        const fileNames = uploadedFiles.map(f => f.name);
-        
-        // 1. Get signed URLs from the server
-        const signedUrls = await getUploadUrls(tempFolderName, fileNames);
-        
-        // 2. Upload directly to Supabase storage
-        const supabase = createClient();
-        
+        // 1. Get presigned upload URLs from NestJS API via Server Action
+        const fileInfos = uploadedFiles.map(f => ({ name: f.name, type: f.type || "application/octet-stream" }));
+        const signedUrls = await getUploadUrls(fileInfos);
+
+        // 2. Upload directly to AWS S3 using HTTP PUT
         const uploadPromises = uploadedFiles.map(async (file) => {
-          // Match by originalName; upload using the sanitized path/token
           const urlInfo = signedUrls.find(u => u.originalName === file.name);
           if (urlInfo) {
-            const { error } = await supabase.storage
-              .from("application-documents")
-              .uploadToSignedUrl(urlInfo.path, urlInfo.token, file);
-              
-            if (!error) {
-              // Track the storedName so the server moves the correct file
-              uploadedFileNames.push(urlInfo.storedName);
+            const uploadRes = await fetch(urlInfo.signedUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type || "application/octet-stream",
+              },
+              body: file,
+            });
+
+            if (uploadRes.ok) {
+              documentsMetadata.push({
+                key: urlInfo.key,
+                originalName: file.name,
+                mimeType: file.type || "application/octet-stream",
+                size: file.size,
+              });
             } else {
-              console.error("Failed to upload file to signed URL", error);
+              console.error(`Failed to upload file ${file.name} to S3`, uploadRes.statusText);
             }
           }
         });
-        
+
         await Promise.all(uploadPromises);
       }
 
@@ -126,9 +126,8 @@ export function ApplicationForm() {
         }
       });
       
-      if (tempFolderName && uploadedFileNames.length > 0) {
-        formData.append("tempFolderName", tempFolderName);
-        formData.append("uploadedFiles", JSON.stringify(uploadedFileNames));
+      if (documentsMetadata.length > 0) {
+        formData.append("documents", JSON.stringify(documentsMetadata));
       }
 
       const result = await submitMembershipApplication(formData);

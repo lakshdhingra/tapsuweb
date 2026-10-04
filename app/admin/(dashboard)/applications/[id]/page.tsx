@@ -3,12 +3,9 @@ import Link from "next/link";
 import { ChevronLeft, FileText, User, MapPin, Briefcase, AlertCircle, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchApi } from "@/lib/api-client";
-import { createServiceClient } from "@/lib/supabase/service";
 import { notFound } from "next/navigation";
 import { ApplicationActions } from "./ApplicationActions";
 import { AdminNotesForm } from "./AdminNotesForm";
-
-const BUCKET_NAME = "application-documents";
 
 export default async function ApplicationReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,32 +21,8 @@ export default async function ApplicationReviewPage({ params }: { params: Promis
     notFound();
   }
 
-  const supabase = createServiceClient();
+  const documentsWithUrls = app.documents || [];
 
-  // Fetch documents from Storage
-  const { data: files } = await supabase.storage
-    .from(BUCKET_NAME)
-    .list(app.id, { sortBy: { column: "name", order: "asc" } });
-
-  const documents = files?.filter((f) => f.name !== ".emptyFolderPlaceholder") ?? [];
-
-  // Generate signed URLs for each document (valid for 1 hour)
-  const documentsWithUrls = await Promise.all(
-    documents.map(async (file) => {
-      const filePath = `${app.id}/${file.name}`;
-      const { data: signedUrlData } = await supabase.storage
-        .from(BUCKET_NAME)
-        .createSignedUrl(filePath, 3600);
-
-      return {
-        name: file.name,
-        size: file.metadata?.size
-          ? `${(file.metadata.size / 1024).toFixed(0)} KB`
-          : "—",
-        url: signedUrlData?.signedUrl ?? null,
-      };
-    })
-  );
 
   const submittedDate = new Date(app.submitted_at).toLocaleDateString("en-IN", {
     year: "numeric",
@@ -180,7 +153,7 @@ export default async function ApplicationReviewPage({ params }: { params: Promis
               </div>
             ) : (
               <div className="space-y-3">
-                {documentsWithUrls.map((doc, idx) => (
+                {documentsWithUrls.map((doc: any, idx: number) => (
                   <div key={idx} className="flex flex-col p-3 border border-gray-100 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0 pr-2">
