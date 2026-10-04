@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Colors from Design Spec */
+  --color-burgundy-deep: #6B1724;
+  --color-primary-maroon: #8B1E2D;
+  --color-burgundy-dark: #4E101A;
+  --color-gold-muted: #C9A227;
+  --color-gold-warm: #D4AF37;
+  --color-ivory: #FAF8F3;
+  --color-white: #FFFFFF;
+  --color-charcoal: #171717;
+  --color-gray-dark: #303030;
+  --color-gray-medium: #6B6B6B;
+  --color-gray-light: #E9E6E0;
+
+  /* shadcn/ui mappings */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-heading);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Radius mapping */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 3);
+  --radius-4xl: calc(var(--radius) * 4);
+}
+
+:root {
+  /* White/Ivory Base Theme */
+  --background: #FAF8F3; /* Ivory */
+  --foreground: #171717; /* Charcoal */
+  
+  --card: #FFFFFF;
+  --card-foreground: #171717;
+  
+  --popover: #FFFFFF;
+  --popover-foreground: #171717;
+  
+  --primary: #8B1E2D; /* Primary Maroon */
+  --primary-foreground: #FFFFFF;
+  
+  --secondary: #E9E6E0; /* Gray Light */
+  --secondary-foreground: #171717;
+  
+  --muted: #E9E6E0;
+  --muted-foreground: #6B6B6B; /* Gray Medium */
+  
+  --accent: #C9A227; /* Gold Muted */
+  --accent-foreground: #171717;
+  
+  --destructive: #EF4444; /* Default Red */
+  --destructive-foreground: #FFFFFF;
+  
+  --border: #E9E6E0;
+  --input: #E9E6E0;
+  --ring: #D4AF37; /* Gold Warm */
+  
+  --radius: 0.5rem; /* 8px small UI */
+
+  --sidebar: #FAF8F3;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #8B1E2D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E9E6E0;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #E9E6E0;
+  --sidebar-ring: #D4AF37;
+  
+  /* Charts - Adjusted for TASPU Palette */
+  --chart-1: #8B1E2D;
+  --chart-2: #C9A227;
+  --chart-3: #4E101A;
+  --chart-4: #6B6B6B;
+  --chart-5: #303030;
+}
+
+.dark {
+  /* Admin uses a cleaner profile, but dark mode should map cleanly if used */
+  --background: #171717;
+  --foreground: #FAF8F3;
+  --card: #303030;
+  --card-foreground: #FAF8F3;
+  --popover: #303030;
+  --popover-foreground: #FAF8F3;
+  --primary: #8B1E2D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #4E101A;
+  --secondary-foreground: #FFFFFF;
+  --muted: #303030;
+  --muted-foreground: #E9E6E0;
+  --accent: #C9A227;
+  --accent-foreground: #171717;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #303030;
+  --input: #303030;
+  --ring: #D4AF37;
+
+  --sidebar: #171717;
+  --sidebar-foreground: #FAF8F3;
+  --sidebar-primary: #8B1E2D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #303030;
+  --sidebar-accent-foreground: #FAF8F3;
+  --sidebar-border: #303030;
+  --sidebar-ring: #D4AF37;
+  
+  --chart-1: #8B1E2D;
+  --chart-2: #C9A227;
+  --chart-3: #4E101A;
+  --chart-4: #E9E6E0;
+  --chart-5: #FFFFFF;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
