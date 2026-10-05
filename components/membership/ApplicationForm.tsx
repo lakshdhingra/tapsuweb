@@ -83,17 +83,26 @@ export function ApplicationForm() {
     setSubmitError(null);
     
     try {
+      console.log(`[ApplicationForm] [1/5] Starting submission with ${uploadedFiles.length} file(s)`);
       const documentsMetadata: { key: string; originalName: string; mimeType: string; size: number }[] = [];
 
       if (uploadedFiles.length > 0) {
         // 1. Get presigned upload URLs from NestJS API via Server Action
         const fileInfos = uploadedFiles.map(f => ({ name: f.name, type: f.type || "application/octet-stream" }));
+        console.log(`[ApplicationForm] [2/5] Calling getUploadUrls for files:`, fileInfos.map(f => f.name));
         const signedUrls = await getUploadUrls(fileInfos);
+        console.log(`[ApplicationForm] [3/5] Received ${signedUrls.length} signed URL object(s)`);
 
         // 2. Upload directly to AWS S3 using HTTP PUT
         const uploadPromises = uploadedFiles.map(async (file) => {
           const urlInfo = signedUrls.find(u => u.originalName === file.name);
-          if (urlInfo) {
+          if (!urlInfo) {
+            console.error(`[ApplicationForm] No signed URL returned for file "${file.name}"`);
+            throw new Error(`Upload information missing for file ${file.name}`);
+          }
+
+          console.log(`[ApplicationForm] [4/5] Immediately before S3 PUT for "${file.name}" (size: ${file.size} bytes, type: ${file.type || "application/octet-stream"})`);
+          try {
             const uploadRes = await fetch(urlInfo.signedUrl, {
               method: "PUT",
               headers: {
@@ -101,6 +110,8 @@ export function ApplicationForm() {
               },
               body: file,
             });
+
+            console.log(`[ApplicationForm] S3 PUT response for "${file.name}": Status ${uploadRes.status} ${uploadRes.statusText}`);
 
             if (uploadRes.ok) {
               documentsMetadata.push({
@@ -110,8 +121,16 @@ export function ApplicationForm() {
                 size: file.size,
               });
             } else {
-              console.error(`Failed to upload file ${file.name} to S3`, uploadRes.statusText);
+              console.error(`[ApplicationForm] S3 PUT failed for file "${file.name}": ${uploadRes.status} ${uploadRes.statusText}`);
+              throw new Error(`Failed to upload document ${file.name} to storage (${uploadRes.status} ${uploadRes.statusText}).`);
             }
+          } catch (s3Err: any) {
+            console.error(`[ApplicationForm] S3 PUT EXCEPTION for "${file.name}":`, {
+              name: s3Err?.name,
+              message: s3Err?.message,
+              stack: s3Err?.stack,
+            });
+            throw s3Err;
           }
         });
 
@@ -130,17 +149,24 @@ export function ApplicationForm() {
         formData.append("documents", JSON.stringify(documentsMetadata));
       }
 
+      console.log(`[ApplicationForm] [5/5] Immediately before calling submitMembershipApplication (/membership/apply)`);
       const result = await submitMembershipApplication(formData);
       
       if (result.success) {
+        console.log(`[ApplicationForm] Application submitted successfully. Ref: ${result.applicationNumber}`);
         setApplicationNumber(result.applicationNumber!);
         setIsSuccess(true);
       } else {
+        console.error(`[ApplicationForm] submitMembershipApplication error:`, result.error);
         setSubmitError(result.error || "Something went wrong. Please try again.");
       }
-    } catch (error) {
-      console.error(error);
-      setSubmitError("Something went wrong. Please try again.");
+    } catch (error: any) {
+      console.error("[ApplicationForm] SUBMISSION EXCEPTION:", {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+      });
+      setSubmitError(error?.message || "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

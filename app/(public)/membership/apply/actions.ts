@@ -7,24 +7,52 @@ export async function getUploadUrls(files: { name: string; type: string }[]) {
     return [];
   }
 
-  const urls = await Promise.all(
-    files.map(async (file) => {
-      const res = await fetchApi('/membership/upload-url', {
-        method: 'POST',
-        body: JSON.stringify({
-          fileName: file.name,
-          mimeType: file.type || "application/octet-stream",
-        }),
-      });
-      return {
-        originalName: file.name,
-        key: res.key,
-        signedUrl: res.signedUrl,
-      };
-    })
-  );
+  try {
+    console.log(`[getUploadUrls] Requesting upload URLs for ${files.length} file(s)`);
+    const urls = await Promise.all(
+      files.map(async (file) => {
+        console.log(`[getUploadUrls] Requesting upload URL for fileName="${file.name}", mimeType="${file.type || "application/octet-stream"}"`);
+        const res = await fetchApi('/membership/upload-url', {
+          method: 'POST',
+          body: JSON.stringify({
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+          }),
+        });
 
-  return urls;
+        console.log(`[getUploadUrls] Parsed response fields for "${file.name}":`, {
+          hasKey: Boolean(res?.key),
+          keyType: typeof res?.key,
+          hasSignedUrl: Boolean(res?.signedUrl || res?.uploadUrl || res?.url),
+          signedUrlType: typeof (res?.signedUrl || res?.uploadUrl || res?.url),
+          hasExpiresIn: Boolean(res?.expiresIn),
+          allResponseKeys: res ? Object.keys(res) : [],
+        });
+
+        const signedUrl = res?.signedUrl || res?.uploadUrl || res?.url;
+
+        if (!res?.key || !signedUrl) {
+          throw new Error(`Upload URL response missing required fields (hasKey: ${Boolean(res?.key)}, hasSignedUrl: ${Boolean(signedUrl)}). Response keys: ${JSON.stringify(Object.keys(res || {}))}`);
+        }
+
+        return {
+          originalName: file.name,
+          key: res.key,
+          signedUrl: signedUrl,
+        };
+      })
+    );
+
+    console.log(`[getUploadUrls] Successfully generated ${urls.length} upload URL object(s)`);
+    return urls;
+  } catch (err: any) {
+    console.error("[getUploadUrls] SERVER ACTION EXCEPTION:", {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+    });
+    throw new Error(err?.message || "Failed to request upload URL from backend.");
+  }
 }
 
 export async function submitMembershipApplication(formData: FormData) {
@@ -63,6 +91,7 @@ export async function submitMembershipApplication(formData: FormData) {
   }
 
   try {
+    console.log(`[submitMembershipApplication] Submitting membership application to /membership/apply with ${documents.length} document(s)`);
     const res = await fetchApi('/membership/apply', {
       method: 'POST',
       body: JSON.stringify({
@@ -84,13 +113,19 @@ export async function submitMembershipApplication(formData: FormData) {
       }),
     });
 
+    console.log(`[submitMembershipApplication] Application submitted successfully. Ref: ${res?.applicationNumber}`);
+
     return {
       success: true,
       applicationNumber: res.applicationNumber,
     };
   } catch (err: any) {
-    console.error("Membership application submission error:", err);
-    return { success: false, error: err.message || "Failed to submit application. Please try again." };
+    console.error("[submitMembershipApplication] SERVER ACTION EXCEPTION:", {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+    });
+    return { success: false, error: err?.message || "Failed to submit application. Please try again." };
   }
 }
 
