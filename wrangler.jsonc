@@ -8,6 +8,9 @@
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
 	},
+	"vars": {
+		"NEST_API_URL": "https://api.taspu.in/api"
+	},
 	"services": [
 		{
 			// Self-reference service binding, the service name must match the worker name
